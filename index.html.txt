@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Word Search 找字遊戲</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+        
+        body {
+            font-family: 'Fredoka', 'Noto Sans TC', sans-serif;
+            background-color: #f0fdf4;
+            overscroll-behavior-y: none;
+            touch-action: pan-x pan-y;
+        }
+
+        #grid-container {
+            touch-action: none; 
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .cell {
+            transition: transform 0.1s;
+        }
+
+        .highlight-line {
+            stroke-dasharray: 100;
+            stroke-dashoffset: 100;
+            animation: drawLine 0.4s ease-out forwards;
+        }
+        
+        @keyframes drawLine {
+            to { stroke-dashoffset: 0; }
+        }
+
+        .word-item {
+            transition: all 0.3s ease;
+        }
+        .word-item.found {
+            text-decoration: line-through;
+            color: #9ca3af;
+            opacity: 0.6;
+        }
+        .word-item.found .word-text {
+            font-family: 'Fredoka', sans-serif;
+            font-weight: bold;
+        }
+        .word-item.revealed {
+            color: #ef4444; 
+            font-weight: bold;
+        }
+        
+        /* 星星按鈕 */
+        .star-btn {
+            transition: transform 0.2s, color 0.2s;
+            cursor: pointer;
+        }
+        .star-btn:active {
+            transform: scale(1.3);
+        }
+        .star-btn.active {
+            color: #facc15; 
+            fill: #facc15;
+        }
+        .star-btn.inactive {
+            color: #cbd5e1; 
+            fill: none;
+        }
+        
+        @keyframes popIn {
+            0% { transform: scale(0.9); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-pop-in {
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        /* 載入畫面 */
+        #loading-screen {
+            position: fixed;
+            inset: 0;
+            background-color: #f0fdf4;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.5s ease;
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #dcfce7;
+            border-top: 5px solid #22c55e;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        option:disabled {
+            color: #cbd5e1; 
+            background-color: #f1f5f9;
+        }
+    </style>
+</head>
+<body class="h-[100dvh] text-slate-800 flex flex-col items-center overflow-hidden">
+
+    <!-- 載入中遮罩 -->
+    <div id="loading-screen">
+        <div class="spinner mb-4"></div>
+        <h2 class="text-xl font-bold text-green-700">正在下載題庫...</h2>
+        <p class="text-slate-500 text-sm mt-2">Connecting to mhbai.github.io</p>
+    </div>
+
+    <!-- 頂部導覽列 -->
+    <header class="w-full bg-white shadow-sm border-b border-green-100 z-30 flex-shrink-0">
+        <div class="max-w-5xl mx-auto px-4 py-2 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <h1 class="text-2xl md:text-3xl font-bold text-green-600 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m10 17 4-4-4-4"/><path d="M14 17l4-4-4-4"/><path d="M4 17l4-4-4-4"/></svg>
+                    Word Search
+                </h1>
+                <span id="current-level-display" class="text-xs md:text-sm font-medium bg-green-100 text-green-700 px-2 py-1 rounded-md ml-2">Level 1 - 1</span>
+            </div>
+            
+            <button id="btn-open-settings" class="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors" title="設定選單">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+        </div>
+        
+        <div class="bg-slate-50 border-t border-slate-100 py-2 px-4 flex justify-center gap-3 shadow-inner">
+            <button id="btn-restart" class="bg-white border border-green-500 text-green-600 hover:bg-green-50 font-semibold py-1.5 px-4 rounded-full text-sm shadow-sm active:scale-95 flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                重來
+            </button>
+            
+            <button id="btn-giveup" class="bg-red-50 border border-red-200 text-red-500 hover:bg-red-100 font-semibold py-1.5 px-4 rounded-full text-sm shadow-sm active:scale-95 flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6"/><path d="M9 9l6 6"/></svg>
+                認輸
+            </button>
+            
+            <button id="btn-header-next" class="hidden bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1.5 px-5 rounded-full text-sm shadow-md active:scale-95 flex items-center gap-1 animate-pulse">
+                下一關 ➡️
+            </button>
+        </div>
+    </header>
+
+    <!-- 遊戲主要內容區 -->
+    <main class="flex-1 w-full max-w-5xl overflow-y-auto p-2 md:p-4 flex flex-col md:flex-row gap-4 items-center md:items-start justify-center">
+        
+        <!-- 字母網格區 -->
+        <div class="w-full max-w-md bg-white p-2 rounded-2xl shadow-lg border border-slate-100 relative flex-shrink-0">
+            <!-- 網格 -->
+            <div id="grid-container" class="grid gap-[2px] md:gap-1 w-full aspect-square relative touch-none">
+                <svg id="highlight-layer" class="absolute inset-0 w-full h-full pointer-events-none z-10 mix-blend-multiply opacity-80"></svg>
+            </div>
+            
+            <!-- 勝利/失敗覆蓋層 -->
+            <div id="win-overlay" class="hidden absolute inset-0 bg-white/95 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center z-20 animate-pop-in p-4 text-center border-4 border-slate-100">
+                <button id="btn-close-overlay" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors p-2 hover:bg-slate-100 rounded-full" title="關閉視窗">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+
+                <div id="overlay-icon" class="text-6xl mb-4">🎉</div>
+                <h2 id="overlay-title" class="text-3xl font-bold text-green-600 mb-2">太厲害了！</h2>
+                <p id="overlay-message" class="text-slate-600 mb-6 font-medium">你找到了所有的單字！</p>
+                
+                <div class="flex flex-wrap gap-3 justify-center">
+                    <button id="btn-view-board" class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3 px-6 rounded-full shadow transition-transform hover:scale-105 active:scale-95 flex items-center gap-2">
+                        👀 查看盤面
+                    </button>
+                    <button id="btn-play-again" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95 hidden">
+                        再來一局
+                    </button>
+                    <button id="btn-next-level" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95">
+                        下一關 ➡️
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 單字列表區 -->
+        <div class="w-full max-w-md lg:w-80 bg-white p-4 rounded-2xl shadow-md border border-slate-100 flex flex-col flex-1 min-h-[150px]">
+            <h3 class="text-lg font-bold text-slate-700 mb-2 border-b pb-2 flex justify-between items-center sticky top-0 bg-white z-10">
+                <span>尋找單字</span>
+                <span id="progress-text" class="text-xs font-medium bg-green-100 text-green-700 py-1 px-2 rounded-md">0 / 0</span>
+            </h3>
+            <div class="overflow-y-auto flex-1 pr-1">
+                <ul id="word-list" class="flex flex-col gap-2 text-base font-medium text-slate-600">
+                    <!-- Word items here -->
+                </ul>
+            </div>
+        </div>
+        
+    </main>
+
+    <!-- 設定選單 Modal -->
+    <div id="settings-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-pop-in">
+            <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                <h2 class="text-xl font-bold text-slate-700 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    遊戲設定
+                </h2>
+                <button id="btn-close-settings" class="text-slate-400 hover:text-slate-600 p-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            
+            <div class="p-6 space-y-6">
+                <!-- 關卡選擇 -->
+                <div class="space-y-3">
+                    <div>
+                        <label for="level-select" class="block text-sm font-medium text-slate-600 mb-1">選擇難度</label>
+                        <select id="level-select" class="w-full bg-slate-50 border border-slate-200 text-slate-700 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-green-500">
+                            <option value="1">Level 1</option>
+                            <option value="2">Level 2</option>
+                            <option value="3">Level 3</option>
+                            <option value="4">Level 4</option>
+                            <option value="5">Level 5</option>
+                            <option value="6">Level 6</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="stage-select" class="block text-sm font-medium text-slate-600 mb-1">選擇關卡</label>
+                        <select id="stage-select" class="w-full bg-slate-50 border border-slate-200 text-slate-700 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-green-500">
+                            <!-- JS 動態生成 -->
+                        </select>
+                    </div>
+                </div>
+
+                <hr class="border-slate-100">
+
+                <!-- 功能按鈕 -->
+                <div class="space-y-3">
+                    <button id="btn-download-difficult" class="w-full bg-purple-50 hover:bg-purple-100 text-purple-600 font-medium py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        下載難詞筆記
+                    </button>
+                    
+                    <button id="btn-reset-data" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                        清除進度與重置題目
+                    </button>
+                </div>
+            </div>
+            <div class="bg-slate-50 px-6 py-3 text-center">
+                <button id="btn-back-game" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-8 rounded-lg shadow active:scale-95 w-full">
+                    回到遊戲
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // === 核心工具 ===
+        function mulberry32(a) {
+            return function() {
+                var t = a += 0x6D2B79F5;
+                t = Math.imul(t ^ t >>> 15, t | 1);
+                t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+                return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            }
+        }
+
+        function seededShuffle(array, seed) {
+            const rng = mulberry32(seed);
+            let m = array.length, t, i;
+            while (m) {
+                i = Math.floor(rng() * m--);
+                t = array[m];
+                array[m] = array[i];
+                array[i] = t;
+            }
+            return array;
+        }
+
+        // === 遊戲資料與設定 ===
+        const LEVEL_SETTINGS = {
+            1: { minGridSize: 6, maxGridSize: 12, minWords: 4, maxWords: 10 },
+            2: { minGridSize: 8, maxGridSize: 14, minWords: 6, maxWords: 12 },
+            3: { minGridSize: 10, maxGridSize: 16, minWords: 8, maxWords: 14 },
+            4: { minGridSize: 12, maxGridSize: 18, minWords: 10, maxWords: 16 },
+            5: { minGridSize: 14, maxGridSize: 20, minWords: 12, maxWords: 18 },
+            6: { minGridSize: 16, maxGridSize: 22, minWords: 14, maxWords: 20 }
+        };
+
+        // === 變數初始化 ===
+        let WORDS_DB = {}; // 等待外部載入
+        const DATA_URL = 'https://mhbai.github.io/word_search/words.json';
+
+        let GRID_SIZE = 12; 
+        let generatedStagesCache = {}; 
+        const DIRECTIONS = [
+            [0, 1], [1, 0], [1, 1], [-1, 1],
+            [0, -1], [-1, 0], [-1, -1], [1, -1]
+        ];
+
+        let currentWords = [];
+        let grid = [];
+        let foundWords = new Set();
+        let solutionPaths = {}; 
+        let isGameActive = true; 
+        let maxUnlocked = { level: 1, stage: 1 }; 
+        let globalSeed = 0;
+        let difficultWordsMap = {}; 
+
+        let isSelecting = false;
+        let startCell = null;
+        let currentSelectionLine = [];
+        let foundCellCoordinates = new Set(); 
+
+        // DOM 元素
+        const gridContainer = document.getElementById('grid-container');
+        const highlightLayer = document.getElementById('highlight-layer');
+        const wordListContainer = document.getElementById('word-list');
+        const levelSelect = document.getElementById('level-select');
+        const stageSelect = document.getElementById('stage-select');
+        const btnRestart = document.getElementById('btn-restart');
+        const btnGiveUp = document.getElementById('btn-giveup'); 
+        const btnHeaderNext = document.getElementById('btn-header-next'); 
+        const btnDownloadDifficult = document.getElementById('btn-download-difficult'); 
+        const btnResetData = document.getElementById('btn-reset-data'); 
+        const btnPlayAgain = document.getElementById('btn-play-again');
+        const btnNextLevel = document.getElementById('btn-next-level');
+        const btnViewBoard = document.getElementById('btn-view-board'); 
+        const btnCloseOverlay = document.getElementById('btn-close-overlay'); 
+        const winOverlay = document.getElementById('win-overlay');
+        const overlayIcon = document.getElementById('overlay-icon');
+        const overlayTitle = document.getElementById('overlay-title');
+        const overlayMessage = document.getElementById('overlay-message');
+        const progressText = document.getElementById('progress-text');
+        const currentLevelDisplay = document.getElementById('current-level-display');
+        const loadingScreen = document.getElementById('loading-screen');
+
+        // 設定選單相關 DOM
+        const settingsModal = document.getElementById('settings-modal');
+        const btnOpenSettings = document.getElementById('btn-open-settings');
+        const btnCloseSettings = document.getElementById('btn-close-settings');
+        const btnBackGame = document.getElementById('btn-back-game');
+        
+        // === 設定選單邏輯 ===
+        function openSettings() {
+            settingsModal.classList.remove('hidden');
+        }
+        function closeSettings() {
+            settingsModal.classList.add('hidden');
+        }
+        btnOpenSettings.addEventListener('click', openSettings);
+        btnCloseSettings.addEventListener('click', closeSettings);
+        btnBackGame.addEventListener('click', closeSettings);
+
+        // === 外部資料載入 ===
+        async function loadWordsData() {
+            try {
+                const response = await fetch(DATA_URL);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                WORDS_DB = data;
+                
+                // 載入成功，隱藏 Loading，開始遊戲
+                loadingScreen.style.opacity = '0';
+                setTimeout(() => {
+                    loadingScreen.classList.add('hidden');
+                    initializeGameSystem();
+                }, 500);
+                
+            } catch (error) {
+                console.error("載入單字檔失敗:", error);
+                loadingScreen.innerHTML = `
+                    <div class="text-red-500 font-bold p-4 bg-white rounded-lg shadow text-center">
+                        無法載入題庫<br>
+                        <span class="text-sm font-normal text-slate-500">${error.message}</span><br>
+                        <button onclick="location.reload()" class="mt-4 bg-slate-200 px-4 py-2 rounded">重試</button>
+                    </div>
+                `;
+            }
+        }
+
+        // === 進度與種子存取功能 ===
+        function loadProgress() {
+            try {
+                const stored = localStorage.getItem('wordSearchProgress');
+                return stored ? JSON.parse(stored) : { level: 1, stage: 1 };
+            } catch (e) {
+                return { level: 1, stage: 1 };
+            }
+        }
+
+        function loadGlobalSeed() {
+            const stored = localStorage.getItem('wordSearchSeed');
+            if (stored) return parseInt(stored);
+            const newSeed = Math.floor(Math.random() * 999999);
+            localStorage.setItem('wordSearchSeed', newSeed);
+            return newSeed;
+        }
+
+        // 載入難詞紀錄
+        function loadDifficultWords() {
+            try {
+                const stored = localStorage.getItem('wordSearchDifficultWords');
+                if (stored) {
+                    difficultWordsMap = JSON.parse(stored);
+                }
+            } catch (e) {
+                console.error("載入難詞失敗", e);
+            }
+        }
+
+        function saveDifficultWords() {
+            localStorage.setItem('wordSearchDifficultWords', JSON.stringify(difficultWordsMap));
+        }
+
+        // 切換難詞標記 (Global Scope)
+        window.toggleDifficult = function(en, zh, btn) {
+            
+            if (difficultWordsMap[en]) {
+                delete difficultWordsMap[en];
+                btn.classList.remove('active');
+                btn.classList.add('inactive');
+                // 設為空心星 (SVG path)
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z");
+                path.setAttribute('fill', "none");
+                path.setAttribute('stroke', "currentColor");
+                path.setAttribute('stroke-width', "2");
+                path.setAttribute('stroke-linejoin', "round");
+                btn.innerHTML = '';
+                btn.appendChild(path);
+            } else {
+                difficultWordsMap[en] = zh;
+                btn.classList.add('active');
+                btn.classList.remove('inactive');
+                // 設為實心星
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z");
+                path.setAttribute('stroke', "none");
+                btn.innerHTML = '';
+                btn.appendChild(path);
+            }
+            saveDifficultWords();
+        };
+
+        // 下載難詞
+        function downloadDifficultWords() {
+            const words = Object.keys(difficultWordsMap);
+            if (words.length === 0) {
+                alert("目前沒有標記任何難詞喔！\n請在遊戲中點擊單字旁的星星來標記。");
+                return;
+            }
+            
+            let content = "Word Search 難詞複習表\n====================\n\n";
+            words.sort().forEach(en => {
+                content += `${en} : ${difficultWordsMap[en]}\n`;
+            });
+
+            const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "word_search_difficult_words.txt";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function saveProgress(level, stage) {
+            if (level > maxUnlocked.level || (level === maxUnlocked.level && stage > maxUnlocked.stage)) {
+                maxUnlocked = { level, stage };
+                localStorage.setItem('wordSearchProgress', JSON.stringify(maxUnlocked));
+                updateLevelDropdownState();
+                updateStageDropdown(parseInt(levelSelect.value));
+            }
+        }
+
+        function resetGameData() {
+            if(!confirm('確定要清除所有過關紀錄並重置題目嗎？\n(這將無法復原，且題目順序會完全改變)\n註：您的「難詞紀錄」不會被清除。')) return;
+            
+            localStorage.removeItem('wordSearchProgress');
+            maxUnlocked = { level: 1, stage: 1 };
+            
+            globalSeed = Math.floor(Math.random() * 999999);
+            localStorage.setItem('wordSearchSeed', globalSeed);
+            
+            generatedStagesCache = {};
+            
+            updateLevelDropdownState();
+            levelSelect.value = 1;
+            updateStageDropdown(1);
+            stageSelect.value = 1;
+            
+            initGame();
+            closeSettings(); // 重置後關閉選單
+        }
+        
+        function updateLevelDropdownState() {
+            Array.from(levelSelect.options).forEach(opt => {
+                const val = parseInt(opt.value);
+                const originalText = opt.text.replace('🔒 ', '');
+                if (val > maxUnlocked.level) {
+                    opt.disabled = true;
+                    opt.textContent = `🔒 ${originalText}`;
+                } else {
+                    opt.disabled = false;
+                    opt.textContent = originalText;
+                }
+            });
+        }
+
+        // === 遊戲生成邏輯 ===
+
+        function getOrGenerateStages(levelNum) {
+            if (generatedStagesCache[levelNum]) {
+                return generatedStagesCache[levelNum];
+            }
+
+            const settings = LEVEL_SETTINGS[levelNum];
+            
+            if (!WORDS_DB[levelNum]) {
+                console.error("找不到 Level 資料:", levelNum);
+                return [];
+            }
+
+            // 使用 globalSeed 來影響單字分配，這樣重置後單字順序會變
+            let availableWords = seededShuffle([...WORDS_DB[levelNum]], levelNum + globalSeed);
+            
+            let stages = [];
+            let stageIndex = 0;
+
+            while (availableWords.length > 0) {
+                let progressRatio = Math.min(stageIndex / 50, 1);
+                let currentGridSize = Math.floor(settings.minGridSize + progressRatio * (settings.maxGridSize - settings.minGridSize));
+                let currentWordCount = Math.floor(settings.minWords + progressRatio * (settings.maxWords - settings.minWords));
+
+                let wordsToPick = Math.min(currentWordCount, availableWords.length);
+                let stageWords = [];
+
+                for (let i = 0; i < availableWords.length && stageWords.length < wordsToPick; i++) {
+                    if (availableWords[i].en.length <= currentGridSize) {
+                        stageWords.push(availableWords[i]);
+                        availableWords.splice(i, 1);
+                        i--; 
+                    }
+                }
+
+                if (stageWords.length === 0 && availableWords.length > 0) {
+                    let minLenIndex = 0;
+                    for(let k=1; k<availableWords.length; k++){
+                        if(availableWords[k].en.length < availableWords[minLenIndex].en.length){
+                            minLenIndex = k;
+                        }
+                    }
+                    currentGridSize = Math.max(currentGridSize, availableWords[minLenIndex].en.length);
+                    stageWords.push(availableWords[minLenIndex]);
+                    availableWords.splice(minLenIndex, 1);
+                }
+
+                stages.push({
+                    gridSize: currentGridSize,
+                    words: stageWords
+                });
+
+                stageIndex++;
+                if (stageIndex >= 500) break;
+            }
+
+            generatedStagesCache[levelNum] = stages;
+            return stages;
+        }
+        
+        function updateStageDropdown(levelNum) {
+            const stages = getOrGenerateStages(levelNum);
+            const totalStages = stages.length || 1;
+            
+            let currentStageValue = parseInt(stageSelect.value) || 1;
+            
+            if (!stageSelect.value && levelNum === maxUnlocked.level) {
+                 currentStageValue = maxUnlocked.stage;
+            }
+
+            stageSelect.innerHTML = '';
+            for (let i = 1; i <= totalStages; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                
+                let isLocked = false;
+                if (levelNum > maxUnlocked.level) {
+                    isLocked = true;
+                } else if (levelNum === maxUnlocked.level && i > maxUnlocked.stage) {
+                    isLocked = true;
+                }
+
+                if (isLocked) {
+                    option.disabled = true;
+                    option.textContent = `🔒 第 ${i} 關`;
+                } else {
+                    option.textContent = `第 ${i} 關`;
+                }
+
+                if (i === currentStageValue) option.selected = true;
+                stageSelect.appendChild(option);
+            }
+        }
+
+        function initGame() {
+            updateLevelDropdownState();
+            const currentLevelNum = parseInt(levelSelect.value);
+            
+            if(stageSelect.options.length === 0 || !stageSelect.querySelector(`option[value="${stageSelect.value}"]`)) {
+                 updateStageDropdown(currentLevelNum);
+            }
+            
+            let currentStageNum = parseInt(stageSelect.value) || 1;
+            if (currentLevelNum === maxUnlocked.level && currentStageNum > maxUnlocked.stage) {
+                currentStageNum = maxUnlocked.stage;
+                stageSelect.value = currentStageNum;
+            }
+
+            // 更新頂部顯示
+            currentLevelDisplay.textContent = `Level ${currentLevelNum} - ${currentStageNum}`;
+
+            const stages = getOrGenerateStages(currentLevelNum);
+            if (!stages || stages.length === 0) return; 
+
+            const currentStageData = stages[currentStageNum - 1];
+            
+            GRID_SIZE = currentStageData.gridSize;
+            
+            // 使用 globalSeed 來影響每關的盤面配置
+            const stageSeed = currentLevelNum * 10000 + currentStageNum + globalSeed;
+            
+            // 強制轉大寫
+            const wordsToFit = currentStageData.words.map(w => ({
+                ...w,
+                en: w.en.toUpperCase()
+            }));
+
+            gridContainer.style.gridTemplateColumns = `repeat(${GRID_SIZE}, minmax(0, 1fr))`;
+
+            const stageRng = mulberry32(stageSeed);
+
+            const evolutionResult = runEvolutionaryPlacement(wordsToFit, stageRng);
+            
+            grid = evolutionResult.grid;
+            currentWords = evolutionResult.placedWords;
+            solutionPaths = evolutionResult.paths;
+            
+            foundWords.clear();
+            foundCellCoordinates.clear();
+            isGameActive = true; 
+            isSelecting = false;
+            startCell = null;
+            currentSelectionLine = [];
+
+            highlightLayer.setAttribute('viewBox', `0 0 ${GRID_SIZE} ${GRID_SIZE}`);
+            highlightLayer.innerHTML = '<line id="selection-line" stroke="#93c5fd" stroke-linecap="round" stroke-width="0.7" class="hidden" />';
+
+            winOverlay.classList.add('hidden');
+            btnGiveUp.classList.remove('hidden'); 
+            btnGiveUp.disabled = false; 
+            btnGiveUp.classList.remove('opacity-50', 'cursor-not-allowed');
+            btnHeaderNext.classList.add('hidden'); 
+
+            fillEmptySpaces(stageRng); 
+            renderGrid();
+            renderWordList();
+            updateProgress();
+        }
+
+        // === 演化演算法核心 ===
+        function runEvolutionaryPlacement(words, rng) {
+            const MAX_GENERATIONS = 15;
+            let bestGrid = null;
+            let bestScore = -1;
+            let bestPlacedWords = [];
+            let bestPaths = {};
+
+            let currentOrder = seededShuffle([...words], Math.floor(rng() * 10000));
+
+            for (let gen = 0; gen < MAX_GENERATIONS; gen++) {
+                const result = tryBuildGrid(currentOrder, rng);
+                
+                let score = result.placedWords.length * 1000 + result.intersections * 10;
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestGrid = result.grid;
+                    bestPlacedWords = result.placedWords;
+                    bestPaths = result.paths;
+                }
+
+                if (result.failedWords.length > 0) {
+                    const successfulShuffled = seededShuffle(result.placedWords.map(w => w.originalObj), Math.floor(rng() * 10000));
+                    currentOrder = [...result.failedWords, ...successfulShuffled];
+                } else {
+                    currentOrder = seededShuffle(currentOrder, Math.floor(rng() * 10000));
+                }
+            }
+
+            return {
+                grid: bestGrid,
+                placedWords: bestPlacedWords,
+                paths: bestPaths
+            };
+        }
+
+        function tryBuildGrid(orderedWords, rng) {
+            let tempGrid = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(''));
+            let placedWords = [];
+            let failedWords = [];
+            let paths = {};
+            let intersections = 0;
+
+            for (const wordObj of orderedWords) {
+                const word = wordObj.en;
+                let placed = false;
+                
+                let attempts = 0;
+                while (!placed && attempts < 50) { 
+                    const dir = DIRECTIONS[Math.floor(rng() * DIRECTIONS.length)];
+                    const r = Math.floor(rng() * GRID_SIZE);
+                    const c = Math.floor(rng() * GRID_SIZE);
+                    
+                    if (canPlaceWordInGrid(tempGrid, word, r, c, dir[0], dir[1])) {
+                        intersections += placeWordInGrid(tempGrid, word, r, c, dir[0], dir[1], paths);
+                        placedWords.push(wordObj); 
+                        placedWords[placedWords.length-1].originalObj = wordObj; 
+                        placed = true;
+                    }
+                    attempts++;
+                }
+
+                if (!placed) {
+                    const shuffledDirs = seededShuffle([...DIRECTIONS], Math.floor(rng() * 10000));
+                    for (let r = 0; r < GRID_SIZE; r++) {
+                        for (let c = 0; c < GRID_SIZE; c++) {
+                            for (const dir of shuffledDirs) {
+                                if (canPlaceWordInGrid(tempGrid, word, r, c, dir[0], dir[1])) {
+                                    intersections += placeWordInGrid(tempGrid, word, r, c, dir[0], dir[1], paths);
+                                    placedWords.push(wordObj);
+                                    placedWords[placedWords.length-1].originalObj = wordObj;
+                                    placed = true;
+                                    break;
+                                }
+                            }
+                            if (placed) break;
+                        }
+                        if (placed) break;
+                    }
+                }
+
+                if (!placed) {
+                    failedWords.push(wordObj);
+                }
+            }
+
+            return { grid: tempGrid, placedWords, failedWords, paths, intersections };
+        }
+
+        function canPlaceWordInGrid(g, word, r, c, dr, dc) {
+            const endR = r + (word.length - 1) * dr;
+            const endC = c + (word.length - 1) * dc;
+            if (endR < 0 || endR >= GRID_SIZE || endC < 0 || endC >= GRID_SIZE) {
+                return false;
+            }
+            for (let i = 0; i < word.length; i++) {
+                const cell = g[r + i * dr][c + i * dc];
+                if (cell !== '' && cell !== word[i]) return false;
+            }
+            return true;
+        }
+
+        function placeWordInGrid(g, word, r, c, dr, dc, paths) {
+            let path = [];
+            let intersectCount = 0;
+            for (let i = 0; i < word.length; i++) {
+                const curR = r + i * dr;
+                const curC = c + i * dc;
+                if (g[curR][curC] !== '') {
+                    intersectCount++; 
+                }
+                g[curR][curC] = word[i];
+                path.push({r: curR, c: curC});
+            }
+            paths[word] = path;
+            return intersectCount;
+        }
+
+        function fillEmptySpaces(rng) {
+            const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    if (grid[r][c] === '') {
+                        grid[r][c] = letters[Math.floor(rng() * letters.length)];
+                    }
+                }
+            }
+        }
+
+        // === 認輸功能 ===
+        function giveUp() {
+            if (!isGameActive) return;
+            isGameActive = false; 
+
+            btnGiveUp.disabled = true;
+            btnGiveUp.classList.add('opacity-50', 'cursor-not-allowed');
+            
+            btnHeaderNext.classList.add('hidden');
+
+            currentWords.forEach(wordObj => {
+                const word = wordObj.en;
+                if (!foundWords.has(word)) {
+                    if (solutionPaths[word]) {
+                        drawHighlightLine(solutionPaths[word], '#ef4444'); 
+                    }
+                    
+                    const li = document.getElementById(`word-${word}`);
+                    if (li) {
+                        li.classList.add('revealed');
+                        // 認輸時顯示英文
+                        li.querySelector('.word-text').textContent = word;
+                        // 移除 title 以免干擾
+                        li.removeAttribute('title');
+                    }
+                }
+            });
+
+            setTimeout(() => {
+                overlayIcon.textContent = '😢';
+                overlayTitle.textContent = '挑戰失敗';
+                overlayTitle.className = 'text-3xl font-bold text-red-500 mb-2';
+                overlayMessage.textContent = '別氣餒，答案已經幫你標出來了。';
+                
+                btnNextLevel.classList.add('hidden'); 
+                btnPlayAgain.classList.remove('hidden'); 
+                winOverlay.classList.remove('hidden');
+            }, 800);
+        }
+
+        function drawHighlightLine(path, color) {
+            const startPos = path[0];
+            const endPos = path[path.length - 1];
+
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', startPos.c + 0.5);
+            line.setAttribute('y1', startPos.r + 0.5);
+            line.setAttribute('x2', endPos.c + 0.5);
+            line.setAttribute('y2', endPos.r + 0.5);
+            line.setAttribute('stroke', color);
+            line.setAttribute('stroke-linecap', 'round');
+            line.setAttribute('stroke-width', '0.7'); 
+            line.setAttribute('pathLength', '100'); 
+            line.classList.add('highlight-line');
+            highlightLayer.appendChild(line);
+        }
+
+        // === UI 渲染 ===
+
+        function renderGrid() {
+            gridContainer.querySelectorAll('.cell').forEach(cell => cell.remove());
+            
+            let fontSizeClass = 'text-lg md:text-xl';
+            if (GRID_SIZE <= 8) {
+                fontSizeClass = 'text-3xl md:text-4xl';
+            } else if (GRID_SIZE <= 12) {
+                fontSizeClass = 'text-2xl md:text-3xl';
+            } else if (GRID_SIZE > 16) {
+                fontSizeClass = 'text-base md:text-lg';
+            }
+
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = `cell flex items-center justify-center ${fontSizeClass} font-bold bg-slate-100 rounded cursor-pointer select-none`;
+                    cell.textContent = grid[r][c];
+                    cell.dataset.r = r;
+                    cell.dataset.c = c;
+                    cell.id = `cell-${r}-${c}`;
+                    gridContainer.appendChild(cell);
+                }
+            }
+        }
+
+        function renderWordList() {
+            wordListContainer.innerHTML = '';
+            currentWords.forEach(wordObj => {
+                const li = document.createElement('li');
+                li.className = 'word-item flex items-start gap-2 relative'; // 調整對齊
+                li.id = `word-${wordObj.en}`; 
+                
+                // === 中文解釋截斷邏輯 ===
+                const fullText = wordObj.zh;
+                // 取第一個分號前的內容
+                let displayText = fullText.split(/;|；/)[0]; // 支援全形/半形分號
+                
+                // 如果還是太長，截斷到18字元
+                if (displayText.length > 18) {
+                    displayText = displayText.substring(0, 17) + '...';
+                }
+                // ==========================
+
+                // 設定 title 讓滑鼠移上去可以看到全文
+                li.setAttribute('title', fullText);
+
+                // --- 關鍵修復：正確顯示首字母與尾字母 ---
+                const firstChar = wordObj.en.charAt(0);
+                const lastChar = wordObj.en.charAt(wordObj.en.length - 1);
+                // 英文已轉大寫，直接取用
+                const hintText = `${firstChar}...${lastChar} (${wordObj.en.length})`;
+
+                // 檢查是否為難詞
+                const isDifficult = !!difficultWordsMap[wordObj.en];
+                const starClass = isDifficult ? 'active' : 'inactive';
+                
+                // SVG Path Data
+                const starD = "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z";
+
+                const starBtn = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                starBtn.setAttribute('viewBox', '0 0 24 24');
+                starBtn.setAttribute('class', `w-5 h-5 mt-1 flex-shrink-0 star-btn ${starClass}`);
+                
+                const starPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                starPath.setAttribute('d', starD);
+                
+                if (isDifficult) {
+                    starPath.setAttribute('stroke', 'none');
+                } else {
+                    starPath.setAttribute('fill', 'none');
+                    starPath.setAttribute('stroke', 'currentColor');
+                    starPath.setAttribute('stroke-width', '2');
+                    starPath.setAttribute('stroke-linejoin', 'round');
+                }
+                
+                starBtn.appendChild(starPath);
+
+                starBtn.onclick = function(e) {
+                    e.stopPropagation(); 
+                    toggleDifficult(wordObj.en, fullText, this);
+                };
+
+                const checkIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                checkIcon.setAttribute('class', 'w-5 h-5 opacity-0 transition-opacity text-green-500 check-icon mt-1 flex-shrink-0');
+                checkIcon.setAttribute('viewBox', '0 0 24 24');
+                checkIcon.setAttribute('fill', 'none');
+                checkIcon.setAttribute('stroke', 'currentColor');
+                checkIcon.setAttribute('stroke-width', '3');
+                checkIcon.setAttribute('stroke-linecap', 'round');
+                checkIcon.setAttribute('stroke-linejoin', 'round');
+                
+                const checkPath = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+                checkPath.setAttribute('points', '20 6 9 17 4 12');
+                checkIcon.appendChild(checkPath);
+
+                const textDiv = document.createElement('div');
+                textDiv.className = 'flex flex-col overflow-hidden';
+                textDiv.innerHTML = `
+                    <span class="word-text truncate text-base leading-tight">${displayText}</span>
+                    <small class="text-slate-400 text-xs font-mono tracking-wider">${hintText}</small>
+                `;
+
+                li.appendChild(starBtn); 
+                li.appendChild(checkIcon);
+                li.appendChild(textDiv);
+                
+                wordListContainer.appendChild(li);
+            });
+        }
+
+        function updateProgress() {
+            progressText.textContent = `${foundWords.size} / ${currentWords.length}`;
+            
+            if (foundWords.size === currentWords.length && isGameActive) {
+                isGameActive = false; 
+
+                const currentLvl = parseInt(levelSelect.value);
+                const currentStg = parseInt(stageSelect.value);
+                const totalStages = getOrGenerateStages(currentLvl).length;
+                
+                let nextLvl = currentLvl;
+                let nextStg = currentStg + 1;
+                
+                if (nextStg > totalStages) {
+                    nextLvl++;
+                    nextStg = 1;
+                }
+                
+                saveProgress(nextLvl, nextStg);
+
+                btnGiveUp.classList.add('hidden'); 
+                
+                if (!(currentLvl >= 6 && currentStg >= totalStages)) {
+                    btnHeaderNext.classList.remove('hidden'); 
+                }
+
+                setTimeout(() => {
+                    overlayIcon.textContent = '🎉';
+                    overlayTitle.textContent = '太厲害了！';
+                    overlayTitle.className = 'text-3xl font-bold text-green-600 mb-2';
+                    overlayMessage.textContent = '你找到了所有的單字！';
+                    
+                    if (currentLvl >= 6 && currentStg >= totalStages) {
+                        btnNextLevel.classList.add('hidden');
+                    } else {
+                        btnNextLevel.classList.remove('hidden');
+                    }
+                    
+                    btnPlayAgain.classList.add('hidden'); 
+                    winOverlay.classList.remove('hidden');
+                }, 500);
+            }
+        }
+
+        // === 互動邏輯 ===
+
+        function handlePointerDown(e) {
+            if (!isGameActive) return; 
+            isSelecting = true;
+            const target = getCellFromEvent(e);
+            if (!target) return;
+
+            startCell = { r: parseInt(target.dataset.r), c: parseInt(target.dataset.c) };
+            updateSelection(startCell.r, startCell.c);
+        }
+
+        function handlePointerMove(e) {
+            if (!isGameActive || !isSelecting || !startCell) return;
+            e.preventDefault(); 
+
+            const target = getCellFromEvent(e);
+            if (!target) return;
+
+            const currentR = parseInt(target.dataset.r);
+            const currentC = parseInt(target.dataset.c);
+            updateSelection(currentR, currentC);
+        }
+
+        function handlePointerUp(e) {
+            if (!isSelecting) return;
+            isSelecting = false;
+            checkSelection();
+            clearSelectionUI();
+            startCell = null;
+        }
+
+        function getCellFromEvent(e) {
+            let clientX = e.clientX;
+            let clientY = e.clientY;
+            
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else if (e.changedTouches && e.changedTouches.length > 0) {
+                clientX = e.changedTouches[0].clientX;
+                clientY = e.changedTouches[0].clientY;
+            }
+
+            const rect = gridContainer.getBoundingClientRect();
+            if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
+                return null;
+            }
+
+            const cellWidth = rect.width / GRID_SIZE;
+            const cellHeight = rect.height / GRID_SIZE;
+
+            const c = Math.floor((clientX - rect.left) / cellWidth);
+            const r = Math.floor((clientY - rect.top) / cellHeight);
+
+            if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
+                return document.getElementById(`cell-${r}-${c}`);
+            }
+            return null;
+        }
+
+        function updateSelection(endR, endC) {
+            currentSelectionLine = calculateLine(startCell.r, startCell.c, endR, endC);
+            
+            const selectionLine = document.getElementById('selection-line');
+            if (selectionLine && currentSelectionLine.length > 0) {
+                const startPos = currentSelectionLine[0];
+                const endPos = currentSelectionLine[currentSelectionLine.length - 1];
+                
+                selectionLine.setAttribute('x1', startPos.c + 0.5);
+                selectionLine.setAttribute('y1', startPos.r + 0.5);
+                selectionLine.setAttribute('x2', endPos.c + 0.5);
+                selectionLine.setAttribute('y2', endPos.r + 0.5);
+                selectionLine.classList.remove('hidden');
+            }
+        }
+
+        function calculateLine(r1, c1, r2, c2) {
+            const path = [];
+            const dr = r2 - r1;
+            const dc = c2 - c1;
+            
+            if (dr !== 0 && dc !== 0 && Math.abs(dr) !== Math.abs(dc)) {
+                return [{r: r1, c: c1}]; 
+            }
+
+            const stepR = dr === 0 ? 0 : dr / Math.abs(dr);
+            const stepC = dc === 0 ? 0 : dc / Math.abs(dc);
+            const steps = Math.max(Math.abs(dr), Math.abs(dc));
+
+            for (let i = 0; i <= steps; i++) {
+                path.push({ r: r1 + i * stepR, c: c1 + i * stepC });
+            }
+            return path;
+        }
+
+        function clearSelectionUI() {
+            const selectionLine = document.getElementById('selection-line');
+            if (selectionLine) selectionLine.classList.add('hidden');
+        }
+
+        function checkSelection() {
+            if (currentSelectionLine.length === 0) return;
+
+            let selectedWord = '';
+            currentSelectionLine.forEach(coord => {
+                selectedWord += grid[coord.r][coord.c];
+            });
+
+            const reversedWord = selectedWord.split('').reverse().join('');
+
+            let foundMatch = null;
+
+            const wordObj = currentWords.find(w => w.en === selectedWord);
+            const reversedWordObj = currentWords.find(w => w.en === reversedWord);
+
+            if (wordObj && !foundWords.has(selectedWord)) {
+                foundMatch = selectedWord;
+            } else if (reversedWordObj && !foundWords.has(reversedWord)) {
+                foundMatch = reversedWord;
+            }
+
+            if (foundMatch) {
+                foundWords.add(foundMatch);
+                
+                const startPos = currentSelectionLine[0];
+                const endPos = currentSelectionLine[currentSelectionLine.length - 1];
+                const highlightColors = ['#fde047', '#86efac', '#93c5fd', '#f9a8d4', '#d8b4fe', '#fdba74'];
+                const color = highlightColors[(foundWords.size - 1) % highlightColors.length];
+
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', startPos.c + 0.5);
+                line.setAttribute('y1', startPos.r + 0.5);
+                line.setAttribute('x2', endPos.c + 0.5);
+                line.setAttribute('y2', endPos.r + 0.5);
+                line.setAttribute('stroke', color);
+                line.setAttribute('stroke-linecap', 'round');
+                line.setAttribute('stroke-width', '0.7'); 
+                line.setAttribute('pathLength', '100'); 
+                line.classList.add('highlight-line');
+                highlightLayer.appendChild(line);
+
+                currentSelectionLine.forEach(coord => {
+                    const id = `cell-${coord.r}-${coord.c}`;
+                    const cell = document.getElementById(id);
+                    if (cell) cell.classList.add('scale-110');
+                    foundCellCoordinates.add(`${coord.r},${coord.c}`);
+                });
+
+                const listItem = document.getElementById(`word-${foundMatch}`);
+                if (listItem) {
+                    listItem.classList.add('found');
+                    listItem.querySelector('.check-icon').classList.remove('opacity-0');
+                    
+                    const wordObj = currentWords.find(w => w.en === foundMatch);
+                    if(wordObj) {
+                        listItem.querySelector('.word-text').textContent = wordObj.en;
+                    }
+                    // 移除 title
+                    listItem.removeAttribute('title');
+                }
+
+                updateProgress();
+            }
+        }
+
+        // === 事件綁定與初始化 ===
+        
+        function initializeGameSystem() {
+            maxUnlocked = loadProgress();
+            globalSeed = loadGlobalSeed(); // 載入全域種子
+            loadDifficultWords(); // 載入難詞
+            
+            gridContainer.addEventListener('pointerdown', handlePointerDown);
+            window.addEventListener('pointermove', handlePointerMove, { passive: false });
+            window.addEventListener('pointerup', handlePointerUp);
+            gridContainer.addEventListener('touchstart', handlePointerDown, { passive: false });
+            window.addEventListener('touchmove', handlePointerMove, { passive: false });
+            window.addEventListener('touchend', handlePointerUp);
+
+            btnRestart.addEventListener('click', initGame);
+            btnPlayAgain.addEventListener('click', initGame);
+            btnGiveUp.addEventListener('click', giveUp); 
+            btnResetData.addEventListener('click', resetGameData); 
+            btnDownloadDifficult.addEventListener('click', downloadDifficultWords); // 綁定下載按鈕
+            
+            const goToNextLevel = () => {
+                const currentLevelNum = parseInt(levelSelect.value);
+                const currentStageNum = parseInt(stageSelect.value);
+                const totalStages = getOrGenerateStages(currentLevelNum).length;
+                
+                if (currentStageNum < totalStages) {
+                    stageSelect.value = currentStageNum + 1;
+                    initGame();
+                } else if (currentLevelNum < 6) {
+                    levelSelect.value = currentLevelNum + 1;
+                    updateStageDropdown(currentLevelNum + 1);
+                    stageSelect.value = 1;
+                    initGame();
+                }
+            };
+
+            btnNextLevel.addEventListener('click', goToNextLevel);
+            btnHeaderNext.addEventListener('click', goToNextLevel);
+            
+            const hideOverlay = () => winOverlay.classList.add('hidden');
+            btnCloseOverlay.addEventListener('click', hideOverlay);
+            btnViewBoard.addEventListener('click', hideOverlay);
+
+            levelSelect.addEventListener('change', (e) => {
+                updateStageDropdown(parseInt(e.target.value));
+                initGame();
+            });
+
+            stageSelect.addEventListener('change', initGame);
+
+            updateLevelDropdownState();
+            updateStageDropdown(1);
+            
+            if(maxUnlocked.level > 1 || maxUnlocked.stage > 1) {
+                 levelSelect.value = maxUnlocked.level;
+                 updateStageDropdown(maxUnlocked.level);
+                 stageSelect.value = maxUnlocked.stage;
+            }
+            
+            // 真正開始第一局
+            initGame();
+        }
+
+        // 程式進入點
+        loadWordsData();
+
+    </script>
+</body>
+</html>
+
+
