@@ -174,6 +174,12 @@
 
     <!-- 設定選單 Modal (全螢幕覆蓋) -->
     <div id="settings-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+		<!-- 超級模式才顯示的按鈕 -->
+<button id="btn-simulation" class="hidden w-full bg-orange-50 hover:bg-orange-100 text-orange-600 font-medium py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h10"/><path d="M9 4v16"/><path d="m3 9 3 3-3 3"/><path d="M14 9l3 3-3 3"/><path d="M22 12h-6"/></svg>
+    🕵️ 驗證題庫覆蓋率
+</button>
+
         <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-pop-in">
             <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
                 <h2 class="text-xl font-bold text-slate-700 flex items-center gap-2">
@@ -263,7 +269,21 @@
             6: { minGridSize: 16, maxGridSize: 22, minWords: 14, maxWords: 20 }
         };
 
-       
+       // ... existing code ...
+let btnSimulation; // 新增變數
+
+// ... existing code ...
+const reportModal = document.getElementById('report-modal');
+const btnCloseReport = document.getElementById('btn-close-report');
+const reportContent = document.getElementById('report-content');
+
+// 在 DOM 載入後的綁定區塊
+btnSimulation = document.getElementById('btn-simulation');
+
+// 綁定事件
+btnSimulation.addEventListener('click', runSimulation);
+btnCloseReport.addEventListener('click', () => reportModal.classList.add('hidden'));
+
 
         let GRID_SIZE = 12; 
         let generatedStagesCache = {}; 
@@ -1123,6 +1143,51 @@
                 updateProgress();
             }
         }
+function runSimulation() {
+    let report = "單字覆蓋率模擬報告 (基於當前種子)\n================================\n\n";
+    let allCovered = true;
+
+    for (let level = 1; level <= 6; level++) {
+        if (!WORDS_DB[level]) continue;
+        
+        // 強制生成該 Level 的所有關卡
+        const stages = getOrGenerateStages(level);
+        
+        // 統計實際有用到的單字
+        const usedWordsSet = new Set();
+        stages.forEach(stage => {
+            stage.words.forEach(w => usedWordsSet.add(w.en));
+        });
+        
+        // 比對資料庫
+        const totalWordsInDB = WORDS_DB[level].length;
+        const usedCount = usedWordsSet.size;
+        
+        // 找出遺漏的單字 (需將 DB 中的也轉大寫來比對)
+        const missingWords = WORDS_DB[level]
+            .filter(w => !usedWordsSet.has(w.en.toUpperCase()))
+            .map(w => w.en);
+        
+        report += `Level ${level}: 已安排 ${usedCount} / 總共 ${totalWordsInDB} (共 ${stages.length} 關)\n`;
+        
+        if (missingWords.length > 0) {
+            allCovered = false;
+            report += `❌ 遺漏單字 (${missingWords.length} 個): ${missingWords.join(', ')}\n`;
+        } else {
+            report += `✅ 100% 覆蓋\n`;
+        }
+        report += "--------------------------------\n";
+    }
+    
+    if (allCovered) {
+        report += "\n🎉 完美！所有單字都已安排在遊戲中。";
+    } else {
+        report += "\n⚠️ 注意：部分單字未被安排，可能是因為該 Level 的網格過小，或者單字過長導致無法放入。";
+    }
+
+    reportContent.textContent = report;
+    reportModal.classList.remove('hidden');
+}
 
         // === 事件綁定與初始化 ===
         
@@ -1195,6 +1260,9 @@
                 clickCount++;
                 
                 // 檢查是否達到 5 次
+				// ... inside initializeGameSystem ...
+
+
                 if(clickCount === 5) {
                     // === 啟動超級模式 ===
                     maxUnlocked = { level: 6, stage: 999 }; // 設定解鎖到最高等級
@@ -1202,8 +1270,11 @@
                     // 更新介面選單狀態
                     updateLevelDropdownState();
                     updateStageDropdown(parseInt(levelSelect.value));
-                    
-                    alert('🔓 超級模式啟動！所有關卡已解鎖。');
+                    levelSelect.value));
+    
+    // --- 新增這行：顯示模擬按鈕 ---
+    btnSimulation.classList.remove('hidden');
+                    alert('🔓 超級模式啟動！所有關卡已解鎖。\n設定選單已啟用「驗證單字覆蓋率」功能。');
                     
                     // 重置計數器
                     clickCount = 0;
@@ -1224,7 +1295,23 @@
         initializeGameSystem();
 
     </script>
+	<!-- 模擬報告 Modal -->
+<div id="report-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-2xl h-[80vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-pop-in">
+        <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center flex-shrink-0">
+            <h2 class="text-xl font-bold text-slate-700">單字覆蓋率模擬報告</h2>
+            <button id="btn-close-report" class="text-slate-400 hover:text-slate-600 text-2xl font-bold">&times;</button>
+        </div>
+        <div class="p-6 flex-1 overflow-auto bg-slate-50 font-mono text-sm whitespace-pre-wrap" id="report-content">
+            正在模擬中...
+        </div>
+        <div class="bg-white px-6 py-4 border-t border-slate-100 flex justify-end">
+            <button onclick="document.getElementById('report-modal').classList.add('hidden')" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-6 rounded-lg">關閉</button>
+        </div>
+    </div>
+</div>
 </body>
 </html>
+
 
 
