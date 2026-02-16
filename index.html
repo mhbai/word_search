@@ -86,12 +86,11 @@
         }
     </style>
 </head>
-<body class="h-[100dvh] text-slate-800 flex flex-col items-center overflow-hidden">
-
+<body class="h-[100dvh] text-slate-800 flex flex-col items-center overflow-
     <!-- 頂部導覽列 (更緊湊) -->
     <header class="w-full bg-white shadow-sm border-b border-green-100 z-30 flex-shrink-0">
         <div class="max-w-5xl mx-auto px-4 py-2 flex items-center justify-between">
-            <div class="flex items-center gap-2">
+			<div class="flex items-center gap-2 select-none cursor-pointer" id="game-title">
                 <h1 class="text-2xl md:text-3xl font-bold text-green-600 flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m10 17 4-4-4-4"/><path d="M14 17l4-4-4-4"/><path d="M4 17l4-4-4-4"/></svg>
                     Word Search
@@ -1186,6 +1185,39 @@
             
             // 真正開始第一局
             initGame();
+			        // 超級模式觸發邏輯：點擊標題 5 次
+        let clickCount = 0;
+        let clickTimer = null;
+        const gameTitle = document.getElementById('game-title');
+        
+        if (gameTitle) {
+            gameTitle.addEventListener('click', () => {
+                clickCount++;
+                
+                // 檢查是否達到 5 次
+                if(clickCount === 5) {
+                    // === 啟動超級模式 ===
+                    maxUnlocked = { level: 6, stage: 999 }; // 設定解鎖到最高等級
+                    
+                    // 更新介面選單狀態
+                    updateLevelDropdownState();
+                    updateStageDropdown(parseInt(levelSelect.value));
+                    
+                    alert('🔓 超級模式啟動！所有關卡已解鎖。');
+                    
+                    // 重置計數器
+                    clickCount = 0;
+                    if(clickTimer) clearTimeout(clickTimer);
+                }
+                
+                // 設定計時器：如果 1 秒內沒再點擊，計數歸零
+                if(clickTimer) clearTimeout(clickTimer);
+                clickTimer = setTimeout(() => {
+                    clickCount = 0;
+                }, 1000);
+            });
+        }
+
         }
 
         // 程式進入點
@@ -1194,3 +1226,4 @@
     </script>
 </body>
 </html>
+
