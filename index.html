@@ -1290,7 +1290,8 @@ function runSimulation() {
                     // 更新介面選單狀態
                     updateLevelDropdownState();
                     updateStageDropdown(parseInt(levelSelect.value));
-    
+                    // Show simulation button
+                    btnSimulation.classList.remove('hidden');
                     alert('🔓 超級模式啟動！所有關卡已解鎖。\n設定選單已啟用「驗證單字覆蓋率」功能。');
                     
                     // 重置計數器
@@ -1316,6 +1317,7 @@ function runSimulation() {
 	<div id="version"></div>
 </body>
 </html>
+
 
 
 
