@@ -295,17 +295,18 @@
         const gridContainer = document.getElementById('grid-container');
         const highlightLayer = document.getElementById('highlight-layer');
         const wordListContainer = document.getElementById('word-list');
-        const levelSelect = document.getElementById('level-select');
-        const stageSelect = document.getElementById('stage-select');
+		// DOM - 將來從 Modal 獲取
+		let levelSelect, stageSelect, btnDownloadDifficult, btnResetData, btnSimulation;
+		
         const btnRestart = document.getElementById('btn-restart');
         const btnGiveUp = document.getElementById('btn-giveup'); 
         const btnHeaderNext = document.getElementById('btn-header-next'); 
-        const btnDownloadDifficult = document.getElementById('btn-download-difficult'); 
-        const btnResetData = document.getElementById('btn-reset-data'); 
+		
         const btnPlayAgain = document.getElementById('btn-play-again');
         const btnNextLevel = document.getElementById('btn-next-level');
         const btnViewBoard = document.getElementById('btn-view-board'); 
         const btnCloseOverlay = document.getElementById('btn-close-overlay'); 
+		
         const winOverlay = document.getElementById('win-overlay');
         const overlayIcon = document.getElementById('overlay-icon');
         const overlayTitle = document.getElementById('overlay-title');
@@ -313,7 +314,7 @@
         const progressText = document.getElementById('progress-text');
         const currentLevelDisplay = document.getElementById('current-level-display'); // 新增
 
-        // 設定選單相關 DOM
+        // Modal 
         const settingsModal = document.getElementById('settings-modal');
         const btnOpenSettings = document.getElementById('btn-open-settings');
         const btnCloseSettings = document.getElementById('btn-close-settings');
@@ -1312,6 +1313,7 @@ function runSimulation() {
 	<div id="version"></div>
 </body>
 </html>
+
 
 
 
