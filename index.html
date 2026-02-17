@@ -270,14 +270,6 @@
             6: { minGridSize: 16, maxGridSize: 22, minWords: 14, maxWords: 20 }
         };
 
-// 在 DOM 載入後的綁定區塊
-btnSimulation = document.getElementById('btn-simulation');
-
-// 綁定事件
-btnSimulation.addEventListener('click', runSimulation);
-btnCloseReport.addEventListener('click', () => reportModal.classList.add('hidden'));
-
-
         let GRID_SIZE = 12; 
         let generatedStagesCache = {}; 
         const DIRECTIONS = [
@@ -348,6 +340,9 @@ btnCloseReport.addEventListener('click', () => reportModal.classList.add('hidden
         btnOpenSettings.addEventListener('click', openSettings);
         btnCloseSettings.addEventListener('click', closeSettings);
         btnBackGame.addEventListener('click', closeSettings);
+        
+        // Report Logic
+        btnCloseReport.addEventListener('click', () => reportModal.classList.add('hidden'));
 
         // === 進度與種子存取功能 ===
         function loadProgress() {
@@ -1213,6 +1208,7 @@ function runSimulation() {
             btnGiveUp.addEventListener('click', giveUp); 
             btnResetData.addEventListener('click', resetGameData); 
             btnDownloadDifficult.addEventListener('click', downloadDifficultWords); 
+			btnSimulation.addEventListener('click', runSimulation); // 綁定模擬按鈕
             
             const goToNextLevel = () => {
                 const currentLevelNum = parseInt(levelSelect.value);
@@ -1276,8 +1272,6 @@ function runSimulation() {
                     updateLevelDropdownState();
                     updateStageDropdown(parseInt(levelSelect.value));
     
-    // --- 新增這行：顯示模擬按鈕 ---
-    btnSimulation.classList.remove('hidden');
                     alert('🔓 超級模式啟動！所有關卡已解鎖。\n設定選單已啟用「驗證單字覆蓋率」功能。');
                     
                     // 重置計數器
@@ -1317,6 +1311,7 @@ function runSimulation() {
 	<div id="version"></div>
 </body>
 </html>
+
 
 
 
