@@ -1169,23 +1169,31 @@ function runSimulation() {
     for (let level = 1; level <= 6; level++) {
         if (!WORDS_DB[level]) continue;
         
-        // 強制生成該 Level 的所有關卡
+        // 1. 強制生成該 Level 的所有關卡
+        // 注意：這會使用當前的 globalSeed，確保模擬結果與玩家實際玩到的順序一致
         const stages = getOrGenerateStages(level);
         
-        // 統計實際有用到的單字
+        // 2. 統計實際有用到的單字
         const usedWordsSet = new Set();
         stages.forEach(stage => {
-            stage.words.forEach(w => usedWordsSet.add(w.en));
+            stage.words.forEach(w => {
+                // 修正重點：將關卡中的單字統一轉為大寫後存入 Set
+                if (w && w.en) {
+                    usedWordsSet.add(w.en.toUpperCase());
+                }
+            });
         });
         
-        // 比對資料庫
+        // 3. 比對資料庫
         const totalWordsInDB = WORDS_DB[level].length;
         const usedCount = usedWordsSet.size;
         
-        // 找出遺漏的單字 (需將 DB 中的也轉大寫來比對)
+        // 修正重點：找出遺漏的單字
+        // 我們拿資料庫原本的字 (w.en) 轉成大寫 (.toUpperCase()) 去 Set 裡面找
+        // 這樣 "apple" 就會正確對應到 Set 裡的 "APPLE"
         const missingWords = WORDS_DB[level]
             .filter(w => !usedWordsSet.has(w.en.toUpperCase()))
-            .map(w => w.en);
+            .map(w => w.en); // 顯示時保留原本的大小寫，方便辨識
         
         report += `Level ${level}: 已安排 ${usedCount} / 總共 ${totalWordsInDB} (共 ${stages.length} 關)\n`;
         
@@ -1197,6 +1205,16 @@ function runSimulation() {
         }
         report += "--------------------------------\n";
     }
+    
+    if (allCovered) {
+        report += "\n🎉 完美！所有單字都已安排在遊戲中。";
+    } else {
+        report += "\n⚠️ 注意：部分單字未被安排，可能是因為該 Level 的網格過小，或者單字過長導致無法放入。";
+    }
+
+    reportContent.textContent = report;
+    reportModal.classList.remove('hidden');
+}
     
     if (allCovered) {
         report += "\n🎉 完美！所有單字都已安排在遊戲中。";
@@ -1317,6 +1335,7 @@ function runSimulation() {
 	<div id="version"></div>
 </body>
 </html>
+
 
 
 
