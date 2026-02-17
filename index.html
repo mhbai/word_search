@@ -269,14 +269,6 @@
             6: { minGridSize: 16, maxGridSize: 22, minWords: 14, maxWords: 20 }
         };
 
-       // ... existing code ...
-let btnSimulation; // 新增變數
-
-// ... existing code ...
-const reportModal = document.getElementById('report-modal');
-const btnCloseReport = document.getElementById('btn-close-report');
-const reportContent = document.getElementById('report-content');
-
 // 在 DOM 載入後的綁定區塊
 btnSimulation = document.getElementById('btn-simulation');
 
@@ -332,7 +324,19 @@ btnCloseReport.addEventListener('click', () => reportModal.classList.add('hidden
         const btnOpenSettings = document.getElementById('btn-open-settings');
         const btnCloseSettings = document.getElementById('btn-close-settings');
         const btnBackGame = document.getElementById('btn-back-game');
-        
+		
+        // Report Modal
+        const reportModal = document.getElementById('report-modal');
+        const btnCloseReport = document.getElementById('btn-close-report');
+        const reportContent = document.getElementById('report-content');
+		
+		// 在 DOM 載入後綁定 Modal 內元素
+        levelSelect = document.getElementById('level-select');
+        stageSelect = document.getElementById('stage-select');
+        btnDownloadDifficult = document.getElementById('btn-download-difficult');
+        btnResetData = document.getElementById('btn-reset-data');
+        btnSimulation = document.getElementById('btn-simulation');
+		
         // === 設定選單邏輯 ===
         function openSettings() {
             settingsModal.classList.remove('hidden');
@@ -1311,6 +1315,7 @@ function runSimulation() {
 </div>
 </body>
 </html>
+
 
 
 
