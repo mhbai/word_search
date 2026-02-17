@@ -1215,16 +1215,6 @@ function runSimulation() {
     reportContent.textContent = report;
     reportModal.classList.remove('hidden');
 }
-    
-    if (allCovered) {
-        report += "\n🎉 完美！所有單字都已安排在遊戲中。";
-    } else {
-        report += "\n⚠️ 注意：部分單字未被安排，可能是因為該 Level 的網格過小，或者單字過長導致無法放入。";
-    }
-
-    reportContent.textContent = report;
-    reportModal.classList.remove('hidden');
-}
 
         // === 事件綁定與初始化 ===
         
@@ -1335,6 +1325,7 @@ function runSimulation() {
 	<div id="version"></div>
 </body>
 </html>
+
 
 
 
