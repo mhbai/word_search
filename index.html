@@ -1162,6 +1162,8 @@
                 updateProgress();
             }
         }
+
+
 function runSimulation() {
     let report = "單字覆蓋率模擬報告 (基於當前種子)\n================================\n\n";
     let allCovered = true;
@@ -1175,27 +1177,33 @@ function runSimulation() {
         
         // 2. 統計實際有用到的單字
         const usedWordsSet = new Set();
-        stages.forEach(stage => {
+        let stageDetails = []; // 用來記錄每一關實際放了幾個字
+
+        stages.forEach((stage, index) => {
+            let count = 0;
             stage.words.forEach(w => {
-                // 修正重點：將關卡中的單字統一轉為大寫後存入 Set
+                // 修正重點：將關卡中的單字統一轉為大寫後存入 Set，避免大小寫比對錯誤
                 if (w && w.en) {
-                    usedWordsSet.add(w.en.toUpperCase());
+                    usedWordsSet.add(w.en.toUpperCase()); 
+                    count++;
                 }
             });
+            // 記錄這一關的單字數，例如 "S1(10)" 代表第1關有10個字
+            stageDetails.push(`S${index + 1}(${count})`);
         });
         
         // 3. 比對資料庫
         const totalWordsInDB = WORDS_DB[level].length;
         const usedCount = usedWordsSet.size;
         
-        // 修正重點：找出遺漏的單字
-        // 我們拿資料庫原本的字 (w.en) 轉成大寫 (.toUpperCase()) 去 Set 裡面找
-        // 這樣 "apple" 就會正確對應到 Set 裡的 "APPLE"
+        // 找出遺漏的單字 (拿資料庫的字轉大寫去 Set 找)
         const missingWords = WORDS_DB[level]
             .filter(w => !usedWordsSet.has(w.en.toUpperCase()))
-            .map(w => w.en); // 顯示時保留原本的大小寫，方便辨識
+            .map(w => w.en); // 顯示時保留原本的大小寫
         
-        report += `Level ${level}: 已安排 ${usedCount} / 總共 ${totalWordsInDB} (共 ${stages.length} 關)\n`;
+        // 4. 產生報告文字
+        report += `[Level ${level}] 覆蓋率: ${usedCount}/${totalWordsInDB} (共 ${stages.length} 關)\n`;
+        report += `關卡詳細: ${stageDetails.join(', ')}\n`; // 列出每一關的字數
         
         if (missingWords.length > 0) {
             allCovered = false;
@@ -1203,7 +1211,7 @@ function runSimulation() {
         } else {
             report += `✅ 100% 覆蓋\n`;
         }
-        report += "--------------------------------\n";
+        report += "--------------------------------\n\n";
     }
     
     if (allCovered) {
@@ -1212,9 +1220,19 @@ function runSimulation() {
         report += "\n⚠️ 注意：部分單字未被安排，可能是因為該 Level 的網格過小，或者單字過長導致無法放入。";
     }
 
-    reportContent.textContent = report;
-    reportModal.classList.remove('hidden');
+    // 顯示報告 (將文字填入 Modal 並顯示)
+    const reportContent = document.getElementById('report-content');
+    const reportModal = document.getElementById('report-modal');
+    
+    if (reportContent && reportModal) {
+        reportContent.textContent = report;
+        reportModal.classList.remove('hidden');
+    } else {
+        console.log(report);
+        alert("報告已生成，請查看 Console (F12)");
+    }
 }
+
 
         // === 事件綁定與初始化 ===
         
@@ -1325,6 +1343,7 @@ function runSimulation() {
 	<div id="version"></div>
 </body>
 </html>
+
 
 
 
